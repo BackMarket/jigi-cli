@@ -1,0 +1,13 @@
+#!/usr/bin/python3
+
+import argparse
+
+
+def run(args):
+    pass
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Jira and Github CLI tool")
+    args = parser.parse_args()
+    run(args)
