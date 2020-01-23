@@ -12,7 +12,7 @@ setuptools.setup(
     version="0.0.1",
     author="Thomas Da Costa",
     author_email="thomas.dacosta@backmarket.com",
-    description="Jira and Github cli tool",
+    description="Jira and GitHub cli tool",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/BackMarket/jigi-cli",

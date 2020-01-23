@@ -1,2 +1,2 @@
-Jira and Github CLI tool
+Jira and GitHub CLI tool
 ========================
