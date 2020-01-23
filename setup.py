@@ -19,7 +19,7 @@ setuptools.setup(
     scripts=["scripts/jigi"],
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
-    install_requires=["PyGithub==1.45", "requests==2.22.0"],
+    install_requires=["PyGithub==1.45", "requests==2.22.0", "appdirs==1.4.3", "ConfigArgParse==1.0"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

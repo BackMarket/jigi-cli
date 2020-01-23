@@ -1,13 +1,21 @@
-#!/usr/bin/python3
-
-import argparse
+#!/usr/bin/env python
 
 
-def run(args):
-    pass
+import os
+
+from appdirs import user_config_dir
+from configargparse import ArgParser
+
+
+def get_config():
+    config_file_path = os.path.join(user_config_dir("jigi-cli"), "jigi.cfg")
+    parser = ArgParser(default_config_files=[config_file_path])
+    parser.add_argument("--config", is_config_file=True, help="Config file path")
+    parser.add_argument("--jira-token", env_var="JIGI_JIRA_TOKEN", required=True, help="Jira API token")
+    parser.add_argument("--jira-login", env_var="JIGI_JIRA_LOGIN", required=True, help="Jira API login")
+    parser.add_argument("--github-token", env_var="JIGI_GITHUB-TOKEN", required=True, help="GitHub API token")
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Jira and Github CLI tool")
-    args = parser.parse_args()
-    run(args)
+    config = get_config()
