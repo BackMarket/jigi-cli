@@ -1,21 +1,45 @@
 #!/usr/bin/env python
 
-
 import os
 
 from appdirs import user_config_dir
 from configargparse import ArgParser
+from tabulate import tabulate
+
+from jigi import jira
 
 
 def get_config():
     config_file_path = os.path.join(user_config_dir("jigi-cli"), "jigi.cfg")
     parser = ArgParser(default_config_files=[config_file_path])
     parser.add_argument("--config", is_config_file=True, help="Config file path")
-    parser.add_argument("--jira-token", env_var="JIGI_JIRA_TOKEN", required=True, help="Jira API token")
+    parser.add_argument("--jira-server", env_var="JIGI_JIRA_SERVER", required=True, help="Jira server")
     parser.add_argument("--jira-login", env_var="JIGI_JIRA_LOGIN", required=True, help="Jira API login")
+    parser.add_argument("--jira-token", env_var="JIGI_JIRA_TOKEN", required=True, help="Jira API token")
+    parser.add_argument("--jira-jql-issues", env_var="JIGI_JIRA_JQL_ISSUES", help="Jira JQL query to list issues")
     parser.add_argument("--github-token", env_var="JIGI_GITHUB-TOKEN", required=True, help="GitHub API token")
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def list_issues(config):
+    jira_client = jira.create_client(config.jira_server, config.jira_login, config.jira_token)
+    issues = jira.get_issues(jira_client)
+    table = []
+
+    for issue in issues:
+        key = issue.key
+        status = issue.fields.status.name
+        summary = jira.get_issue_summary_truncated(issue)
+        link = "-> {}".format(jira.get_issue_link(jira_client, issue))
+        table.append([key, status, "\n".join([summary, link])])
+
+    print(tabulate(table, tablefmt="grid"))
+
+
+def run():
     config = get_config()
+    list_issues(config)
+
+
+if __name__ == "__main__":
+    run()
