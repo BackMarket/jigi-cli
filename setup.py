@@ -2,7 +2,6 @@ import io
 
 import setuptools
 
-
 with io.open("README.md", "r") as fd:
     long_description = fd.read()
 
@@ -19,7 +18,14 @@ setuptools.setup(
     scripts=["scripts/jigi"],
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
-    install_requires=["PyGithub==1.45", "requests==2.22.0", "appdirs==1.4.3", "ConfigArgParse==1.0"],
+    install_requires=[
+        "ConfigArgParse==1.0",
+        "PyGithub==1.45",
+        "appdirs==1.4.3",
+        "jira==2.0.0",
+        "requests==2.22.0",
+        "tabulate==0.8.6",
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
