@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 
+import curses
 import os
+from threading import Thread
 
+import tabulate
 from appdirs import user_config_dir
 from configargparse import ArgParser
-from tabulate import tabulate
 
+from jigi import github
 from jigi import jira
+from jigi.utils import strmax
+
+FRAME_RATE = 33
+tabulate.PRESERVE_WHITESPACE = True
 
 
 def get_config():
@@ -17,23 +24,84 @@ def get_config():
     parser.add_argument("--jira-login", env_var="JIGI_JIRA_LOGIN", required=True, help="Jira API login")
     parser.add_argument("--jira-token", env_var="JIGI_JIRA_TOKEN", required=True, help="Jira API token")
     parser.add_argument("--jira-jql-issues", env_var="JIGI_JIRA_JQL_ISSUES", help="Jira JQL query to list issues")
-    parser.add_argument("--github-token", env_var="JIGI_GITHUB-TOKEN", required=True, help="GitHub API token")
+    parser.add_argument("--github-token", env_var="JIGI_GITHUB_TOKEN", required=True, help="GitHub API token")
+    parser.add_argument("--github-repo", env_var="JIGI_GITHUB_REPO", required=True, help="GitHub repository")
     return parser.parse_args()
 
 
-def list_issues(config):
-    jira_client = jira.create_client(config.jira_server, config.jira_login, config.jira_token)
-    issues = jira.get_issues(jira_client)
+class Worker(Thread):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.jira_client = None
+        self.github_client = None
+        self.data = []
+
+    def run(self):
+        self.jira_client = jira.create_client(self.config.jira_server, self.config.jira_login, self.config.jira_token)
+        self.github_client = github.create_client(self.config.github_token)
+        jira_issues = jira.get_issues(self.jira_client)
+        for jira_issue in jira_issues:
+            github_prs = []
+            row = (jira_issue, github_prs)
+            jira_issue.html_url = jira.get_issue_link(self.jira_client, jira_issue)
+            self.data.append(row)
+            for github_pr in github.get_pull_requests_opened(
+                self.github_client, self.config.github_repo, "in:title", jira_issue.key
+            ):
+                github_prs.append(github_pr)
+
+
+def render_data(data, max_summary_length=80):
     table = []
+    for jira_issue, github_prs in data:
+        key = jira_issue.key
+        status = jira_issue.fields.status.name
+        summary = strmax(jira_issue.fields.summary, max_summary_length)
+        link = jira_issue.html_url
+        for github_pr in github_prs:
+            summary += strmax("\n  - {}".format(github_pr.title), max_summary_length)
+            link += "\n  - {}".format(github_pr.html_url)
+        row = [key, status, summary, link]
+        table.append(row)
+        table.append([" " for _ in row])
+    return tabulate.tabulate(table)
 
-    for issue in issues:
-        key = issue.key
-        status = issue.fields.status.name
-        summary = jira.get_issue_summary_truncated(issue)
-        link = "-> {}".format(jira.get_issue_link(jira_client, issue))
-        table.append([key, status, "\n".join([summary, link])])
 
-    print(tabulate(table, tablefmt="grid"))
+def render_progress_bar(ms, template="[{}]", size=30, delay=750, cursor_chars="><", space_chars=" "):
+    progress_bar_cursor_pos = ((ms * size) // delay) % (size * len(cursor_chars))
+    progress_bar_cursor = cursor_chars[progress_bar_cursor_pos // size]
+    progress_bar_cursor_pos_norm = progress_bar_cursor_pos % size
+    progress_bar_space_1 = space_chars * progress_bar_cursor_pos_norm
+    progress_bar_space_2 = space_chars * (size - progress_bar_cursor_pos_norm)
+    if (progress_bar_cursor_pos // size) % 2 < 1:
+        return template.format(progress_bar_space_1 + progress_bar_cursor + progress_bar_space_2)
+    return template.format(progress_bar_space_2 + progress_bar_cursor + progress_bar_space_1)
+
+
+def list_issues(config):
+    screen = curses.initscr()
+    worker = Worker(config)
+    ms = 0
+    progress_bar_template = "{} |{{}}| {}".format(config.jira_server, config.github_repo)
+
+    worker.start()
+
+    while worker.isAlive():
+        screen.addstr(0, 0, render_progress_bar(ms, template=progress_bar_template), curses.A_BOLD)
+        screen.addstr(1, 0, render_data(worker.data) + "\n")
+        screen.refresh()
+        curses.napms(FRAME_RATE)
+        ms += FRAME_RATE
+
+    screen.addstr(0, 0, render_progress_bar(ms, template=progress_bar_template), curses.A_BOLD)
+    screen.addstr(1, 0, render_data(worker.data) + "\n")
+    screen.addstr("Press any key to  continue...", curses.A_BOLD)
+    screen.refresh()
+    screen.getch()
+    curses.endwin()
+
+    print(render_data(worker.data))
 
 
 def run():
