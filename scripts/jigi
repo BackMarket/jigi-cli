@@ -57,12 +57,14 @@ def render_data(data, max_summary_length=80):
     for jira_issue, github_prs in data:
         key = jira_issue.key
         status = jira_issue.fields.status.name
-        summary = strmax(jira_issue.fields.summary, max_summary_length)
-        link = jira_issue.html_url
+        summary = [jira_issue.fields.summary]
+        link = [jira_issue.html_url]
         for github_pr in github_prs:
-            summary += strmax("\n  - {}".format(github_pr.title), max_summary_length)
-            link += "\n  - {}".format(github_pr.html_url)
-        row = [key, status, summary, link]
+            summary.extend(["  |", "  |__ {}".format(github_pr.title)])
+            link.extend(["  |", "  |__ {}".format(github_pr.html_url)])
+        multi_summary = "\n".join([strmax(s, max_summary_length) for s in summary])
+        multi_link = "\n".join(link)
+        row = [key, status, multi_summary, multi_link]
         table.append(row)
         table.append([" " for _ in row])
     return tabulate.tabulate(table)
